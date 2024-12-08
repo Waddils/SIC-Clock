@@ -1,0 +1,7 @@
+Project 3
+
+Starting Address: 
+7E3A
+
+Size of Program:
+7FFF - 7E3A = 453

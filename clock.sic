@@ -1,0 +1,217 @@
+CLOCK   START   7E3A
+
+        LDA     TIMER         # Load the timer value (seconds since midnight)
+        STA	TIMEDP
+        AND	SEC
+        COMP	TIMEDP        # Compare with original value
+        JEQ     FORM12        # Jump to 12-hour format if original value = original value, else go FORM24
+        J	FORM24
+
+
+# --------------Calculating Hours and Minutes--------------
+FORM24  LDA     TIMER
+        AND	SEC           # Gets rid of 'FF80' part
+        STA     TIMER
+
+        DIV     D3600         # Divide seconds by 3600 to get hours
+        STA     HOURS
+
+        LDA     HOURS
+        MUL     D3600         # Calculate total seconds for the hours
+        STA     QUOTNT
+
+        LDA     TIMER
+        SUB     QUOTNT        # Subtract to get remaining seconds
+        DIV     D60           # Divide by 60 to get minutes
+        STA     MINS
+
+        J       DISP24
+
+FORM12  LDA     TIMER
+        DIV     D3600
+        STA     HOURS
+
+        LDA     HOURS
+        MUL     D3600
+        STA     QUOTNT
+
+        LDA     TIMER
+        SUB     QUOTNT
+        DIV     D60
+        STA     MINS
+
+        LDA     HOURS
+        COMP    CON12         # Check if hours >= 12
+        JLT     DIS12A        # Less than 12
+        JEQ     DIS12P        # Equal to 12
+
+        LDA     HOURS
+        SUB     CON12         # Convert to 12-hour format
+        STA     HOURS
+        J       DIS12P
+
+
+# -----------------Display for 24-hour-----------------
+DISP24  J       P_TIME
+        J       FIN
+
+
+
+# ---------------Display for 12-hour (AM)--------------
+DIS12A  LDA     ONE           # FLAG = 1 (for 'A' output)
+        STA     FLAG
+
+        LDA     HOURS
+        COMP    ZERO
+        JEQ     MIDNIT        # Check for midnight
+
+        J       P_TIME
+
+CON12A  LDA     A_CHAR        # Print 'A'
+        STA     TEMP
+        JSUB    OUTPUT
+
+        J       FIN
+
+
+
+# ----------------Special Case: Midnight---------------
+MIDNIT  LDA     CON12         # Reset hours to 12 for midnight
+        STA     HOURS
+
+        J       P_TIME
+
+
+
+# ---------------Display for 12-hour (PM)--------------
+DIS12P  LDA     TWO           # FLAG = 2 (for 'P' output)
+        STA     FLAG
+
+        J       P_TIME
+
+CON12P  LDA     P_CHAR        # Print 'P'
+        STA     TEMP
+        JSUB    OUTPUT
+
+        J       FIN
+
+
+
+# --------------------Printing Time--------------------
+P_TIME  LDA     HOURS
+        COMP    CON10
+        JLT     PADHR         # Handle hours < 10
+
+        LDA     HOURS
+        DIV     CON10         # Get tens digit
+        STA     DIGIT1
+        MUL     CON10
+        SUB     HOURS         # Get units digit
+        MUL     NEG1
+        STA     DIGIT2
+
+        LDA     DIGIT1
+        ADD     ASCII
+        STA     TEMP
+        JSUB    OUTPUT
+
+        LDA     DIGIT2
+        ADD     ASCII
+        STA     TEMP
+        JSUB    OUTPUT
+
+        J       P_MIN
+
+PADHR   LDA     ASCII         # Print leading zero
+        STA     TEMP
+        JSUB    OUTPUT
+
+        LDA     HOURS
+        ADD     ASCII
+        STA     TEMP
+        JSUB    OUTPUT
+
+P_MIN   LDA     MINS
+        COMP    CON10
+        JLT     PADMIN        # Handle minutes < 10
+
+        LDA     MINS
+        DIV     CON10         # Get tens digit
+        STA     DIGIT1
+        MUL     CON10
+        SUB     MINS          # Get units digit
+        MUL     NEG1
+        STA     DIGIT2
+
+        LDA     DIGIT1
+        ADD     ASCII
+        STA     TEMP
+        JSUB    OUTPUT
+
+        LDA     DIGIT2
+        ADD     ASCII
+        STA     TEMP
+        JSUB    OUTPUT
+
+        LDA     FLAG
+        COMP    ONE
+        JEQ     CON12A        # Handle 'A' output
+        JGT     CON12P        # Handle 'P' output
+
+        J       FIN
+
+PADMIN  LDA     ASCII         # Print leading zero
+        STA     TEMP
+        JSUB    OUTPUT
+
+        LDA     MINS
+        ADD     ASCII
+        STA     TEMP
+        JSUB    OUTPUT
+
+        LDA     FLAG
+        COMP    ONE
+        JEQ     CON12A        # Handle 'A' output
+        JGT     CON12P        # Handle 'P' output
+
+        J       FIN
+
+OUTPUT  TD    DEVICE     
+        JEQ   OUTPUT     
+        LDA   TEMP      
+        WD    DEVICE     
+        RSUB             
+
+# ---------------Data Storage and Constants---------------
+SEC     BYTE    X'7FFFFF'
+HOURS   RESW    1
+MINS    RESW    1
+TEMP    RESW    1
+QUOTNT  RESW    1
+DIGIT1  RESW    1
+DIGIT2  RESW    1
+FLAG    RESW    1
+TIMEDP  RESW    1
+
+D3600   WORD    3600
+D60     WORD    60
+CON12   WORD    12
+CON10   WORD    10
+ZERO    WORD    0
+NEG1    WORD    -1
+ONE     WORD    1
+TWO     WORD    2
+HALT    WORD    000000
+
+ASCII   WORD    48
+A_CHAR  WORD    65
+P_CHAR  WORD    80
+
+DEVICE  WORD    64
+
+FIN     LDL      HALT           
+        STL      HALT           
+        RSUB  
+
+TIMER   RESW    1
+        END     CLOCK
